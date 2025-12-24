@@ -273,20 +273,6 @@ export function UploadDropzone({
             )}
           </AnimatePresence>
         </motion.div>
-
-        {/* Helper text */}
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.3 }}
-          className="text-center text-xs text-muted-foreground/60 mt-4 font-light"
-        >
-          You can also paste images from clipboard · Use{" "}
-          <kbd className="px-1.5 py-0.5 rounded bg-muted/50 text-[10px] font-mono border border-border/30">
-            shift + return
-          </kbd>{" "}
-          to upload
-        </motion.p>
       </div>
     )
   }
@@ -443,7 +429,7 @@ export function UploadDropzone({
             >
               {hasPendingFiles ? (
                 <>
-                  Press <kbd className="px-1.5 py-0.5 rounded bg-muted/50 text-xs font-mono">shift + return</kbd> to upload
+                  Press <kbd className="px-1 py-0.5 rounded bg-muted/50 text-xs font-mono">shift + return</kbd> to upload
                 </>
               ) : isDragActive ? (
                 <span className="text-accent font-normal">Release to add images to queue</span>
