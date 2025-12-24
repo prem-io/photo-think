@@ -5,6 +5,7 @@ import Uppy from "@uppy/core"
 import XHRUpload from "@uppy/xhr-upload"
 import ThumbnailGenerator from "@uppy/thumbnail-generator"
 import type { UppyFile, Meta, Body } from "@uppy/core"
+import { toast } from "sonner"
 
 // Cloudinary configuration - should be moved to env vars in production
 const CLOUDINARY_CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || "your_cloud_name"
@@ -119,7 +120,11 @@ export function useUppy() {
       restrictions: {
         maxFileSize: 10 * 1024 * 1024, // 10MB - VERY IMPORTANT
         allowedFileTypes: [".jpg", ".jpeg", ".png", ".gif", ".webp"],
+        maxNumberOfFiles: 1000, // Support up to 1000 files in queue
       },
+      // Bounded concurrency: only 3 files upload simultaneously
+      // This prevents network saturation and browser throttling
+      infoTimeout: 5000,
     })
 
     // Configure XHRUpload for Cloudinary
@@ -128,6 +133,8 @@ export function useUppy() {
       formData: true,
       fieldName: "file",
       bundle: false,
+      limit: 3, // Maximum 3 concurrent uploads - bounded concurrency
+      timeout: 60000, // 60 second timeout per upload
       // Add upload preset to form data via allowedMetaFields
       allowedMetaFields: ["upload_preset"],
       getResponseData(xhr: XMLHttpRequest): Body {
@@ -157,18 +164,35 @@ export function useUppy() {
       thumbnailHeight: 400,
     })
 
-    // Event: File added
+    // Event: File added - sync immediately to show in grid
     uppy.on("file-added", (file: UppyFile<Meta, Record<string, never>>) => {
+      // Sync immediately so pending files appear in grid
       syncFiles()
+      
+      // Also create a preview URL from the file data if available
+      if (file.data instanceof File) {
+        const previewUrl = URL.createObjectURL(file.data)
+        updateFileState(file.id, (prev) => ({
+          ...prev,
+          url: previewUrl,
+          thumbnail: previewUrl,
+        }))
+      }
     })
 
     // Event: Thumbnail generated
     uppy.on("thumbnail:generated", (file: UppyFile<Meta, Record<string, never>>, preview: string) => {
-      updateFileState(file.id, (prev) => ({
-        ...prev,
-        thumbnail: preview,
-        url: preview, // Use thumbnail as URL until upload completes
-      }))
+      updateFileState(file.id, (prev) => {
+        // Clean up object URL if we created one earlier
+        if (prev.url && prev.url.startsWith('blob:')) {
+          URL.revokeObjectURL(prev.url)
+        }
+        return {
+          ...prev,
+          thumbnail: preview,
+          url: preview, // Use thumbnail as URL until upload completes
+        }
+      })
     })
 
     // Event: Upload progress
@@ -209,6 +233,10 @@ export function useUppy() {
         status: "error",
         error: error?.message || "Upload failed",
       }))
+      // Show error toast
+      toast.error(`Failed to upload ${file.name}`, {
+        description: error?.message || "Please try again",
+      })
     })
 
     // Event: Overall progress
@@ -233,9 +261,14 @@ export function useUppy() {
     })
 
     // Event: Upload complete
-    uppy.on("complete", () => {
+    uppy.on("complete", (result) => {
       setIsUploading(false)
       syncFiles()
+
+      // Show success toast if any files were uploaded successfully
+      if (result && result.successful && result.successful.length > 0) {
+        toast.success(`Successfully uploaded ${result.successful.length} image${result.successful.length > 1 ? 's' : ''}`)
+      }
     })
 
     // Event: Upload cancelled
@@ -272,25 +305,41 @@ export function useUppy() {
     const filesArray = Array.from(fileList)
     const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp"]
     const allowedExtensions = [".jpg", ".jpeg", ".png", ".gif", ".webp"]
-    
+
+    let invalidTypeCount = 0
+    let oversizedCount = 0
+
     const validFiles = filesArray.filter((file) => {
       // Validate file type - must be one of the allowed formats
       const fileExtension = "." + file.name.split(".").pop()?.toLowerCase()
       const isValidType = allowedTypes.includes(file.type.toLowerCase()) || allowedExtensions.includes(fileExtension)
-      
+
       if (!isValidType) {
-        console.warn(`File ${file.name} is not an allowed format. Allowed: jpg, jpeg, png, gif, webp`)
+        invalidTypeCount++
         return false
       }
-      
+
       // Validate file size - max 10MB (VERY IMPORTANT)
       if (file.size > 10 * 1024 * 1024) {
-        console.warn(`File ${file.name} exceeds 10MB limit (${(file.size / 1024 / 1024).toFixed(2)}MB)`)
+        oversizedCount++
         return false
       }
-      
+
       return true
     })
+
+    // Show validation error toasts
+    if (invalidTypeCount > 0) {
+      toast.error(`${invalidTypeCount} file${invalidTypeCount > 1 ? 's' : ''} rejected`, {
+        description: "Only JPG, PNG, GIF, and WEBP images are allowed",
+      })
+    }
+
+    if (oversizedCount > 0) {
+      toast.error(`${oversizedCount} file${oversizedCount > 1 ? 's' : ''} too large`, {
+        description: "Maximum file size is 10MB per image",
+      })
+    }
 
     if (validFiles.length > 0) {
       uppyRef.current.addFiles(
@@ -304,6 +353,7 @@ export function useUppy() {
           },
         }))
       )
+      // No toast needed - images are visible in the queue
     }
   }, [])
 
@@ -343,15 +393,32 @@ export function useUppy() {
     })
   }, [])
 
-  // Calculate aspect ratio from image
+  // Pause all uploads
+  const pauseAll = useCallback(() => {
+    if (!uppyRef.current) return
+    uppyRef.current.pauseAll()
+  }, [])
+
+  // Resume all uploads
+  const resumeAll = useCallback(() => {
+    if (!uppyRef.current) return
+    uppyRef.current.resumeAll()
+  }, [])
+
+  // Calculate aspect ratio from image - use natural dimensions for accurate ratio
   const calculateAspectRatio = useCallback((file: File): Promise<number> => {
     return new Promise((resolve) => {
       const img = new Image()
       const url = URL.createObjectURL(file)
       img.onload = () => {
-        const aspectRatio = img.height / img.width
+        // Use natural dimensions to get true aspect ratio
+        const aspectRatio = img.naturalHeight / img.naturalWidth
         URL.revokeObjectURL(url)
-        resolve(aspectRatio)
+        if (aspectRatio > 0 && isFinite(aspectRatio)) {
+          resolve(aspectRatio)
+        } else {
+          resolve(1) // Fallback to square
+        }
       }
       img.onerror = () => {
         URL.revokeObjectURL(url)
@@ -389,6 +456,8 @@ export function useUppy() {
     addFiles,
     uploadAll,
     cancelAll,
+    pauseAll,
+    resumeAll,
     retryFailed,
     retryFile,
     clearCompleted,
