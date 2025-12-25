@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useState, useEffect, useCallback } from "react"
-import { motion, AnimatePresence } from "framer-motion"
+import { motion } from "framer-motion"
 import { ImageCard } from "./image-card"
 import type { FileState } from "@/hooks/use-uppy"
 
@@ -18,25 +18,19 @@ export function ImageGrid({ images, onRetry }: ImageGridProps) {
     setIsClient(true)
   }, [])
 
-  // Responsive column count with more breakpoints for Pinterest-style
+  // Responsive column count: mobile 2, tablet 3, large screen 4
   const updateColumnCount = useCallback(() => {
     if (typeof window === "undefined") return
 
     const width = window.innerWidth
 
-    // Pinterest-style responsive breakpoints
-    if (width < 640) {
+    // Responsive breakpoints
+    if (width < 768) {
       setColumnCount(2) // Mobile: 2 columns
-    } else if (width < 768) {
-      setColumnCount(2) // Small tablet: 2 columns
     } else if (width < 1024) {
       setColumnCount(3) // Tablet: 3 columns
-    } else if (width < 1280) {
-      setColumnCount(4) // Desktop: 4 columns
-    } else if (width < 1536) {
-      setColumnCount(5) // Large desktop: 5 columns
     } else {
-      setColumnCount(6) // Extra large: 6 columns
+      setColumnCount(4) // Large screen: 4 columns
     }
   }, [])
 
@@ -85,8 +79,11 @@ export function ImageGrid({ images, onRetry }: ImageGridProps) {
       // Add image to shortest column
       cols[shortestColIndex].push(image)
 
-      // Update column height (use aspect ratio if available, default to 1)
-      const aspectRatio = image.aspectRatio || 1
+      // Update column height using pre-calculated aspect ratio
+      // Aspect ratios are calculated from Uppy metadata before images load, preventing layout shift
+      const aspectRatio = image.aspectRatio > 0 && isFinite(image.aspectRatio) 
+        ? image.aspectRatio 
+        : 1 // Fallback to square if aspect ratio not yet calculated
       colHeights[shortestColIndex] += aspectRatio
     })
 
@@ -150,35 +147,20 @@ export function ImageGrid({ images, onRetry }: ImageGridProps) {
       className="w-full"
     >
       {/* Pinterest-style masonry grid */}
-      <div
-        className="grid gap-3 sm:gap-4 md:gap-5 lg:gap-6"
-        style={{
-          gridTemplateColumns: `repeat(${columnCount}, 1fr)`,
-        }}
-      >
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 md:gap-5 lg:grid-cols-4 lg:gap-6">
         {columns.map((column, colIdx) => (
           <motion.div
-            key={`col-${colIdx}-${columnCount}`}
+            key={colIdx}
             variants={columnVariants}
-            className="flex flex-col gap-3 sm:gap-4 md:gap-5 lg:gap-6"
+            className="flex flex-col gap-4 md:gap-5 lg:gap-6"
           >
-            <AnimatePresence mode="popLayout">
-              {column.map((image, imageIdx) => (
-                <motion.div
-                  key={image.id}
-                  variants={itemVariants}
-                  layout
-                  layoutId={image.id}
-                  custom={imageIdx}
-                  className="w-full"
-                >
-                  <ImageCard
-                    image={image}
-                    onRetry={() => onRetry(image.id)}
-                  />
-                </motion.div>
-              ))}
-            </AnimatePresence>
+            {column.map((image) => (
+              <ImageCard
+                key={image.id}
+                image={image}
+                onRetry={() => onRetry(image.id)}
+              />
+            ))}
           </motion.div>
         ))}
       </div>

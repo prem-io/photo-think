@@ -70,30 +70,18 @@ export function ImageCard({ image, onRetry }: ImageCardProps) {
             : '1',
         }}
       >
-        {/* Skeleton Loader */}
-        {image.status === "pending" && (
-          <motion.div
-            animate={{ opacity: [0.3, 0.6, 0.3] }}
-            transition={{ duration: 1.5, repeat: Number.POSITIVE_INFINITY }}
-            className="absolute inset-0 bg-muted-foreground/10"
-          />
-        )}
-
-        {/* Image - Maintains aspect ratio, fills container width */}
-        {image.url && image.url !== "/placeholder.svg" ? (
+        {/* Image Preview - Always show if URL exists (Uppy generates thumbnails immediately) */}
+        {image.url && image.url !== "/placeholder.svg" && (
           <motion.img
             src={image.url}
             alt={image.filename}
             initial={{ opacity: 0 }}
-            animate={{
-              opacity:
-                image.status === "pending" ? 0.6 : image.status === "uploading" ? (image.progress > 30 ? 1 : 0.4) : 1,
-            }}
-            transition={{ duration: 0.5 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.3 }}
             className="w-full h-full transition-all duration-300"
             style={{
               display: 'block',
-              objectFit: 'cover',
+              objectFit: 'contain',
               objectPosition: 'center',
               width: '100%',
               height: '100%',
@@ -115,100 +103,63 @@ export function ImageCard({ image, onRetry }: ImageCardProps) {
               }
             }}
           />
-        ) : image.status === "pending" ? (
-          // Show skeleton for pending files without preview yet
+        )}
+
+        {/* Skeleton Loader - Only show if no URL yet */}
+        {(!image.url || image.url === "/placeholder.svg") && (
           <motion.div
             animate={{ opacity: [0.3, 0.6, 0.3] }}
             transition={{ duration: 1.5, repeat: Number.POSITIVE_INFINITY }}
             className="absolute inset-0 bg-muted-foreground/10"
           />
-        ) : null}
+        )}
 
-        {/* Progress Bar - Top */}
+        {/* Thin Progress Bar - Top (only when uploading) */}
         {image.status === "uploading" && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="absolute top-0 left-0 right-0 h-1 bg-muted/40 backdrop-blur-sm overflow-hidden"
+            className="absolute top-0 left-0 right-0 h-0.5 bg-black/20 overflow-hidden z-10"
           >
             <motion.div
               initial={{ width: 0 }}
               animate={{ width: `${image.progress}%` }}
               transition={{ duration: 0.3, ease: "easeOut" }}
-              className="h-full bg-gradient-to-r from-accent/80 via-accent to-accent/80 shadow-lg shadow-accent/50"
-            >
-              {/* Shimmer effect */}
-              <motion.div
-                animate={{ x: ['-100%', '200%'] }}
-                transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
-                className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent"
-              />
-            </motion.div>
+              className="h-full bg-gradient-to-r from-accent via-accent/90 to-accent"
+            />
           </motion.div>
         )}
 
-        {/* Status Overlay */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: isHovered || image.status !== "completed" ? 1 : 0 }}
-          transition={{ duration: 0.2 }}
-          className="absolute inset-0 bg-black/20 flex items-center justify-center"
-        >
-          {image.status === "pending" && (
-            <motion.div
-              animate={{ scale: [1, 1.1, 1] }}
-              transition={{ duration: 2, repeat: Number.POSITIVE_INFINITY }}
-              className="px-3 py-1 rounded-full bg-muted-foreground/20 backdrop-blur-sm border border-muted-foreground/30"
-            >
-              <p className="text-xs font-medium text-muted-foreground">Queued</p>
-            </motion.div>
-          )}
-
-          {image.status === "error" && (
-            <motion.button
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={onRetry}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-destructive/10 backdrop-blur-sm hover:bg-destructive/20 transition-colors"
-            >
-              <AlertCircle className="w-4 h-4 text-destructive" />
-              <span className="text-xs font-medium text-destructive">Retry</span>
-            </motion.button>
-          )}
-
-          {image.status === "completed" && isHovered && (
-            <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ type: "spring", stiffness: 200 }}
-              className="w-8 h-8 bg-accent rounded-full flex items-center justify-center"
-            >
-              <Check className="w-4 h-4 text-accent-foreground" strokeWidth={3} />
-            </motion.div>
-          )}
-        </motion.div>
-
-        {/* Filename Overlay - Bottom */}
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{
-            opacity: isHovered ? 1 : 0,
-            y: isHovered ? 0 : 8,
-          }}
-          transition={{ duration: 0.2 }}
-          className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 via-black/40 to-transparent px-4 py-4 backdrop-blur-sm"
-        >
-          <p className="text-xs font-medium text-white truncate">{image.filename}</p>
-        </motion.div>
-
-        {/* Success Glow */}
-        {image.status === "completed" && !isHovered && (
+        {/* Error Retry Button - Center overlay (only on error) */}
+        {image.status === "error" && (
           <motion.div
             initial={{ opacity: 0 }}
-            animate={{ opacity: [0.3, 0] }}
-            transition={{ duration: 0.8, delay: 0.2 }}
-            className="absolute inset-0 bg-accent/20"
-          />
+            animate={{ opacity: 1 }}
+            className="absolute inset-0 bg-black/40 flex items-center justify-center z-10"
+          >
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={onRetry}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-destructive/90 backdrop-blur-sm hover:bg-destructive transition-colors shadow-lg"
+            >
+              <AlertCircle className="w-4 h-4 text-white" />
+              <span className="text-sm font-medium text-white">Retry</span>
+            </motion.button>
+          </motion.div>
+        )}
+
+        {/* Small Hover Overlay - Bottom (only on hover, shows filename) */}
+        {isHovered && image.status !== "error" && (
+          <motion.div
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 4 }}
+            transition={{ duration: 0.2 }}
+            className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/60 to-transparent px-3 py-2.5 backdrop-blur-sm z-10"
+          >
+            <p className="text-xs font-medium text-white truncate">{image.filename}</p>
+          </motion.div>
         )}
       </div>
     </motion.div>

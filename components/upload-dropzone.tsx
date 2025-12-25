@@ -3,7 +3,7 @@
 import type React from "react"
 import { useRef, useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Cloud, Upload, X, ImageIcon } from "lucide-react"
+import { Cloud, Upload, X, ImageIcon, Paperclip, Globe, Lightbulb, MoreHorizontal, ArrowUp } from "lucide-react"
 import { toast } from "sonner"
 
 interface UploadDropzoneProps {
@@ -300,150 +300,127 @@ export function UploadDropzone({
         ref={dropzoneRef}
         onClick={handleClick}
         animate={{
-          borderColor: isDragActive ? "oklch(0.65 0.08 150)" : "oklch(0.94 0.01 160)",
+          borderColor: isDragActive ? "oklch(0.65 0.08 150)" : "oklch(0.85 0.01 160)",
           backgroundColor: isDragActive ? "oklch(0.98 0.005 160)" : "oklch(1 0 0)",
-          scale: isDragActive ? 1.01 : 1,
         }}
         transition={{ duration: 0.2 }}
-        className="relative rounded-2xl border border-border/40 p-4 cursor-pointer group bg-card shadow-sm hover:shadow-md hover:border-border/60 transition-all"
+        className="relative rounded-xl border border-border/60 bg-background min-h-[60px] p-4 cursor-pointer group"
       >
-        <div className="space-y-3">
-          {/* Main Dropzone Row */}
-          <div className="flex items-center gap-4">
-            {/* Left: Progress Indicator or Upload Icon */}
-            {uploadingCount > 0 ? (
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                className="shrink-0 flex items-center gap-2"
-              >
-                <div className="relative w-8 h-8">
-                  <svg className="w-8 h-8" viewBox="0 0 32 32">
-                    <circle cx="16" cy="16" r="14" fill="none" stroke="oklch(0.92 0.01 160)" strokeWidth="2" />
-                    <motion.circle
-                      cx="16"
-                      cy="16"
-                      r="14"
-                      fill="none"
-                      stroke="oklch(0.65 0.08 150)"
-                      strokeWidth="2"
-                      strokeDasharray={`${2 * Math.PI * 14}`}
-                      strokeDashoffset={`${2 * Math.PI * 14 * (1 - progressPercent / 100)}`}
-                      strokeLinecap="round"
-                      style={{ transform: "rotate(-90deg)", transformOrigin: "50% 50%" }}
-                      animate={{ strokeDashoffset: `${2 * Math.PI * 14 * (1 - progressPercent / 100)}` }}
-                      transition={{ duration: 0.6, ease: "easeOut" }}
-                    />
-                  </svg>
-                  <span className="absolute inset-0 flex items-center justify-center">
-                    <span className="text-xs font-semibold text-foreground">{progressPercent}</span>
-                  </span>
-                </div>
-                <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">
-                  {uploadingCount}/{totalCount}
-                </span>
-              </motion.div>
-            ) : (
-              <motion.div
-                animate={isDragActive ? { scale: 1.1, rotate: isDragActive ? [0, -10, 10, 0] : 0 } : { scale: 1, rotate: 0 }}
-                transition={{ duration: 0.3 }}
-              >
-                <Upload className={`w-5 h-5 transition-colors ${isDragActive ? 'text-accent' : 'text-muted-foreground group-hover:text-accent'}`} />
-              </motion.div>
+        {/* Placeholder Text - Top Left */}
+        <div className="absolute top-4 left-4 pointer-events-none">
+          <p className="text-sm text-muted-foreground/50 font-light">
+            {uploadingCount > 0 ? "Uploading..." : isDragActive ? "Drop images here" : "Ask anything"}
+          </p>
+        </div>
+
+        {/* Bottom Row - Action Buttons */}
+        <div className="flex items-center justify-between mt-8 pt-3 border-t border-border/40">
+          {/* Left Side - Action Buttons */}
+          <div className="flex items-center gap-2">
+            {/* Paperclip Button - Circular */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                handleClick()
+              }}
+              className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-muted/50 transition-colors"
+              aria-label="Attach files"
+            >
+              <Paperclip className="w-4 h-4 text-muted-foreground/70" strokeWidth={1.5} />
+            </button>
+
+            {/* Deep Search Button - Pill */}
+            <button
+              onClick={(e) => e.stopPropagation()}
+              className="px-3 py-1.5 rounded-full flex items-center gap-1.5 hover:bg-muted/50 transition-colors"
+              aria-label="Deep Search"
+            >
+              <Globe className="w-3.5 h-3.5 text-muted-foreground/70" strokeWidth={1.5} />
+              <span className="text-xs text-muted-foreground/70 font-light">Deep Search</span>
+            </button>
+
+            {/* Reason Button - Pill */}
+            <button
+              onClick={(e) => e.stopPropagation()}
+              className="px-3 py-1.5 rounded-full flex items-center gap-1.5 hover:bg-muted/50 transition-colors"
+              aria-label="Reason"
+            >
+              <Lightbulb className="w-3.5 h-3.5 text-muted-foreground/70" strokeWidth={1.5} />
+              <span className="text-xs text-muted-foreground/70 font-light">Reason</span>
+            </button>
+
+            {/* More Options Button - Circular */}
+            <button
+              onClick={(e) => e.stopPropagation()}
+              className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-muted/50 transition-colors"
+              aria-label="More options"
+            >
+              <MoreHorizontal className="w-4 h-4 text-muted-foreground/70" strokeWidth={1.5} />
+            </button>
+          </div>
+
+          {/* Right Side - Send/Upload Button */}
+          <div className="flex items-center gap-2">
+            {uploadingCount > 0 && (
+              <span className="text-xs text-muted-foreground/70 mr-2">
+                {uploadingCount}/{totalCount}
+              </span>
             )}
-
-            {/* Center: Text */}
-            <div className="flex-1 min-w-0 pointer-events-none">
-              {uploadingCount > 0 ? (
-                <p className="text-sm text-foreground/70 font-light">
-                  Uploading your images...
-                </p>
-              ) : (
-                <p className="text-sm text-foreground/70 font-light">
-                  {isDragActive ? "Drop to add images" : "Click to upload"}
-                </p>
-              )}
-            </div>
-
-            {/* Right: Upload Controls */}
-            {uploadingCount > 0 ? (
-              <div className="flex items-center gap-2 pointer-events-auto">
-                {/* Pause/Resume Button */}
+            {hasPendingFiles && !isUploading && !isPaused ? (
+              <motion.button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onUpload?.()
+                }}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="w-9 h-9 rounded-lg bg-foreground text-background flex items-center justify-center shadow-sm hover:shadow transition-all"
+                aria-label="Upload images"
+              >
+                <ArrowUp className="w-4 h-4" strokeWidth={2.5} />
+              </motion.button>
+            ) : uploadingCount > 0 ? (
+              <div className="flex items-center gap-1">
                 {isPaused ? (
                   <motion.button
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
                     onClick={(e) => {
                       e.stopPropagation()
                       onResume?.()
                     }}
-                    className="shrink-0 p-1.5 hover:bg-accent/20 rounded-md transition-colors"
-                    aria-label="Resume upload"
+                    className="w-9 h-9 rounded-lg bg-foreground text-background flex items-center justify-center shadow-sm hover:shadow-md transition-all"
+                    aria-label="Resume"
                   >
-                    <svg className="w-4 h-4 text-accent" viewBox="0 0 24 24" fill="currentColor">
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M8 5v14l11-7z" />
                     </svg>
                   </motion.button>
                 ) : (
                   <motion.button
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
                     onClick={(e) => {
                       e.stopPropagation()
                       onPause?.()
                     }}
-                    className="shrink-0 p-1.5 hover:bg-accent/20 rounded-md transition-colors"
-                    aria-label="Pause upload"
+                    className="w-9 h-9 rounded-lg bg-foreground text-background flex items-center justify-center shadow-sm hover:shadow-md transition-all"
+                    aria-label="Pause"
                   >
-                    <svg className="w-4 h-4 text-accent" viewBox="0 0 24 24" fill="currentColor">
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
                     </svg>
                   </motion.button>
                 )}
-                {/* Cancel Button */}
                 <motion.button
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
                   onClick={(e) => {
                     e.stopPropagation()
                     onCancel?.()
                   }}
-                  className="shrink-0 p-1.5 hover:bg-muted rounded-md transition-colors"
-                  aria-label="Cancel upload"
+                  className="w-9 h-9 rounded-lg border border-border/50 hover:bg-muted flex items-center justify-center transition-all"
+                  aria-label="Cancel"
                 >
-                  <X className="w-4 h-4 text-muted-foreground hover:text-foreground" />
+                  <X className="w-4 h-4 text-muted-foreground" />
                 </motion.button>
               </div>
-            ) : (
-              <span className="text-xs text-muted-foreground font-medium whitespace-nowrap pointer-events-none"></span>
-            )}
+            ) : null}
           </div>
-
-          {/* Info Row */}
-          {uploadingCount === 0 && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.2 }}
-              className="text-xs text-muted-foreground/70 px-14 pb-1 pointer-events-none"
-            >
-              {hasPendingFiles ? (
-                <>
-                  Press <kbd className="px-1 py-0.5 rounded bg-muted/50 text-xs font-mono">shift + return</kbd> to upload
-                </>
-              ) : isDragActive ? (
-                <span className="text-accent font-normal">Release to add images to queue</span>
-              ) : (
-                <>
-                  Drag and drop, click, or paste{" "}
-                  <kbd className="px-1 py-0.5 rounded bg-muted/50 text-[10px] font-mono border border-border/20">
-                    Ctrl+V
-                  </kbd>{" "}
-                  to add images
-                </>
-              )}
-            </motion.div>
-          )}
         </div>
 
         {/* Drag overlay */}
@@ -453,7 +430,7 @@ export function UploadDropzone({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-accent/5 rounded-2xl pointer-events-none border-2 border-accent/20"
+              className="absolute inset-0 bg-accent/5 rounded-xl pointer-events-none border-2 border-accent/20"
             />
           )}
         </AnimatePresence>

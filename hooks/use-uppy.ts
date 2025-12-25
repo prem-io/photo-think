@@ -164,13 +164,49 @@ export function useUppy() {
       thumbnailHeight: 400,
     })
 
-    // Event: File added - sync immediately to show in grid
+    // Event: File added - sync to show files in grid
     uppy.on("file-added", (file: UppyFile<Meta, Record<string, never>>) => {
-      // Sync immediately so pending files appear in grid
-      syncFiles()
+      // Sync files state - this will capture all files including newly added ones
+      // Use requestAnimationFrame to ensure Uppy has finished processing all files in batch
+      requestAnimationFrame(() => {
+        syncFiles()
+      })
       
-      // Also create a preview URL from the file data if available
-      if (file.data instanceof File) {
+      // Calculate aspect ratio immediately from file if it's an image
+      if (file.data instanceof File && file.type.startsWith('image/')) {
+        const img = new Image()
+        const previewUrl = URL.createObjectURL(file.data)
+        
+        img.onload = () => {
+          const aspectRatio = img.naturalHeight / img.naturalWidth
+          
+          if (aspectRatio > 0 && isFinite(aspectRatio)) {
+            updateFileState(file.id, (prev) => ({
+              ...prev,
+              aspectRatio,
+              url: previewUrl,
+              thumbnail: previewUrl,
+            }))
+          } else {
+            updateFileState(file.id, (prev) => ({
+              ...prev,
+              url: previewUrl,
+              thumbnail: previewUrl,
+            }))
+          }
+        }
+        
+        img.onerror = () => {
+          updateFileState(file.id, (prev) => ({
+            ...prev,
+            url: previewUrl,
+            thumbnail: previewUrl,
+          }))
+        }
+        
+        img.src = previewUrl
+      } else if (file.data instanceof File) {
+        // Non-image file, just create preview URL
         const previewUrl = URL.createObjectURL(file.data)
         updateFileState(file.id, (prev) => ({
           ...prev,
@@ -180,19 +216,51 @@ export function useUppy() {
       }
     })
 
-    // Event: Thumbnail generated
+    // Event: Thumbnail generated - use thumbnail dimensions for aspect ratio
     uppy.on("thumbnail:generated", (file: UppyFile<Meta, Record<string, never>>, preview: string) => {
-      updateFileState(file.id, (prev) => {
-        // Clean up object URL if we created one earlier
-        if (prev.url && prev.url.startsWith('blob:')) {
-          URL.revokeObjectURL(prev.url)
+      // Calculate aspect ratio from thumbnail image dimensions
+      const img = new Image()
+      img.onload = () => {
+        const aspectRatio = img.naturalHeight / img.naturalWidth
+        if (aspectRatio > 0 && isFinite(aspectRatio)) {
+          updateFileState(file.id, (prev) => {
+            // Clean up object URL if we created one earlier
+            if (prev.url && prev.url.startsWith('blob:')) {
+              URL.revokeObjectURL(prev.url)
+            }
+            return {
+              ...prev,
+              thumbnail: preview,
+              url: preview, // Use thumbnail as URL until upload completes
+              aspectRatio, // Use calculated aspect ratio from thumbnail
+            }
+          })
+        } else {
+          updateFileState(file.id, (prev) => {
+            if (prev.url && prev.url.startsWith('blob:')) {
+              URL.revokeObjectURL(prev.url)
+            }
+            return {
+              ...prev,
+              thumbnail: preview,
+              url: preview,
+            }
+          })
         }
-        return {
-          ...prev,
-          thumbnail: preview,
-          url: preview, // Use thumbnail as URL until upload completes
-        }
-      })
+      }
+      img.onerror = () => {
+        updateFileState(file.id, (prev) => {
+          if (prev.url && prev.url.startsWith('blob:')) {
+            URL.revokeObjectURL(prev.url)
+          }
+          return {
+            ...prev,
+            thumbnail: preview,
+            url: preview,
+          }
+        })
+      }
+      img.src = preview
     })
 
     // Event: Upload progress
@@ -341,9 +409,17 @@ export function useUppy() {
       })
     }
 
+    const createFileId = (file: File, index: number) => {
+      if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+        return crypto.randomUUID()
+      }
+      return `${file.name}-${file.size}-${file.lastModified}-${Date.now()}-${index}`
+    }
+
     if (validFiles.length > 0) {
       uppyRef.current.addFiles(
-        validFiles.map((file) => ({
+        validFiles.map((file, index) => ({
+          id: createFileId(file, index),
           source: "Local",
           name: file.name,
           type: file.type,
